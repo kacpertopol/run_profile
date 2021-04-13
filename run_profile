@@ -1,0 +1,55 @@
+#!/bin/bash
+
+scriptDir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
+
+[ ! -d "$scriptDir"/deps_run_profile ] && {
+    echo "MAKING DIRECTORY:" "$scriptDir"/deps_run_profile
+    echo "CONTINUE? [Y/n]"
+    read con
+    [ "$con" = "n" ] || [ "$con" = "N" ] && {
+        echo "FAILED TO INSTALL, EXITING"
+        exit 1
+    }
+    mkdir "$scriptDir"/deps_run_profile 
+}
+
+[ ! -d "$scriptDir"/deps_run_profile/gprof2dot ] &&
+{
+    echo "CLONING: gprof2dot into deps_run_profile/gprof2dot"
+    echo "CONTINUE? [Y/n]"
+    read con
+    [ "$con" = "n" ] || [ "$con" = "N" ] && {
+        echo "FAILED TO INSTALL, EXITING"
+        exit 1
+    }
+    current=$(pwd)
+    cd "$scriptDir"/deps_run_profile
+    git clone https://github.com/jrfonseca/gprof2dot.git
+    cd "$current"
+}
+
+dot -? > /dev/null 2>&1 || {
+    echo "REQUIRED PROGRAM dot NOT FOUND"
+    echo "PLEASE INSTALL THE graphviz PACKAGE"
+    exit 1
+}
+
+[ "$1" = "-h" ] || [ "$1" = "--help" ] && {
+    echo "USAGE:"
+    echo "run_profile python_script"
+    exit 0
+}
+
+[ -f "$1" ] && {
+    pstatsFile="$1".pstats
+    pngFile="$1".png
+    dataFile="$1".data
+    echo "CREATING:" "$pstatsFile"
+    python -m cProfile -o "$pstatsFile" "$1"
+    echo "CREATING:" "$pngFile"
+    "$scriptDir"/deps_run_profile/gprof2dot/gprof2dot.py -f pstats "$pstatsFile" | dot -Tpng -o "$pngFile"
+    python -c 'import sys; import pstats; print(pstats.Stats(sys.argv[1]).strip_dirs().sort_stats(-1).print_stats())' "$pstatsFile" > "$dataFile"
+    exit 0
+}
+
+exit 1
